@@ -47,16 +47,13 @@
   </section>
 
   <!-- GRID -->
-  <main class="gallery">
-    <div class="container">
-      <div class="cards">
-        <article class="card"><img src="feat-1.jpg" alt="Retrato feminino"></article>
-        <article class="card"><img src="feat-2.jpg" alt="Casamento ao pôr-do-sol"></article>
-        <article class="card"><img src="feat-3.jpg" alt="Produto"></article>
-        <!-- duplica estes cards para mais imagens, se quiseres -->
-      </div>
-    </div>
-  </main>
+ <main class="gallery">
+  <div class="container">
+    <div class="cards" id="cards"></div>
+    <p id="loading">A carregar…</p>
+    <p id="error" hidden>Não foi possível carregar a galeria.</p>
+  </div>
+</main>
 
   <!-- FOOTER -->
   <footer class="site-footer">
@@ -101,5 +98,72 @@
       </div>
     </div>
   </footer>
+  <script>
+/* ========= CONFIG =========
+   Altera para o teu repositório */
+const GH_OWNER  = 'TEU_UTILIZADOR_OU_ORG';
+const GH_REPO   = 'NOME_DO_REPO';
+const GH_BRANCH = 'main';               // ou 'master'
+const FOLDER    = 'assets/galeria';     // onde pões as fotos
+/* ========================= */
+
+const API_URL = `https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/contents/${FOLDER}?ref=${GH_BRANCH}`;
+
+const cardsEl = document.getElementById('cards');
+const loadEl  = document.getElementById('loading');
+const errEl   = document.getElementById('error');
+
+const exts = ['.jpg','.jpeg','.png','.webp','.gif','.avif'];
+
+function isImage(name){
+  const n = name.toLowerCase();
+  return exts.some(e => n.endsWith(e));
+}
+
+function render(items){
+  const frag = document.createDocumentFragment();
+  items.forEach(({download_url, name}) => {
+    const art = document.createElement('article');
+    art.className = 'card';
+
+    const img = document.createElement('img');
+    img.loading = 'lazy';
+    img.decoding = 'async';
+    img.src = download_url + `?cb=${encodeURIComponent(GH_BRANCH)}`;
+    img.alt = name.replaceAll('_',' ').replaceAll('-',' ');
+
+    // Abre imagem em novo separador ao clicar
+    art.addEventListener('click', () => window.open(download_url, '_blank', 'noopener'));
+
+    art.appendChild(img);
+    frag.appendChild(art);
+  });
+  cardsEl.innerHTML = '';
+  cardsEl.appendChild(frag);
+}
+
+async function loadGallery(){
+  try{
+    const res = await fetch(API_URL, { cache: 'no-store' });
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    const data = await res.json();
+
+    const files = (data || [])
+      .filter(x => x.type === 'file' && x.download_url && isImage(x.name))
+      // ordena por nome desc (se nomeares 2025-11-06_foto.jpg fica “mais recente primeiro”)
+      .sort((a,b) => a.name < b.name ? 1 : -1);
+
+    render(files);
+    loadEl.remove();
+  }catch(e){
+    console.error(e);
+    if(loadEl) loadEl.remove();
+    errEl.hidden = false;
+  }
+}
+
+loadGallery();
+</script>
 </body>
+
 </html>
