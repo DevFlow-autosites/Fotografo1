@@ -47,8 +47,9 @@
   </section>
 
   <!-- GRID -->
- <main class="gallery">
+<main class="gallery">
   <div class="container">
+    <div class="chips" id="filters"></div>
     <div class="cards" id="cards"></div>
     <p id="loading">A carregar…</p>
     <p id="error" hidden>Não foi possível carregar a galeria.</p>
@@ -99,65 +100,108 @@
     </div>
   </footer>
   <script>
-/* ========= CONFIG =========
-   Altera para o teu repositório */
-const GH_OWNER  = 'DevFlow-autosites';
-const GH_REPO   = 'Fotografo1';
+/* ========= CONFIGURAÇÃO ========= */
+const GH_OWNER  = 'DevFlow-autosites';     // <-- o teu utilizador GitHub
+const GH_REPO   = 'Fotografo1';           // <-- o nome do repositório
 const GH_BRANCH = 'main';               // ou 'master'
-const FOLDER    = 'assets/galeria';     // onde pões as fotos
-/* ========================= */
+const FOLDER    = 'assets/galeria';     // onde estão as fotos
+/* ================================= */
 
 const API_URL = `https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/contents/${FOLDER}?ref=${GH_BRANCH}`;
 
-const cardsEl = document.getElementById('cards');
-const loadEl  = document.getElementById('loading');
-const errEl   = document.getElementById('error');
+const cardsEl  = document.getElementById('cards');
+const filtersEl= document.getElementById('filters');
+const loadEl   = document.getElementById('loading');
+const errEl    = document.getElementById('error');
 
 const exts = ['.jpg','.jpeg','.png','.webp','.gif','.avif'];
 
-function isImage(name){
+let allImages = [];
+let activeCategory = 'Todos';
+
+function isImage(name) {
   const n = name.toLowerCase();
   return exts.some(e => n.endsWith(e));
 }
 
-function render(items){
+function getCategory(name) {
+  const dash = name.indexOf('-');
+  return dash > 0 ? name.slice(0, dash) : 'Outros';
+}
+
+function renderFilters(categories) {
+  filtersEl.innerHTML = '';
+  const allBtn = document.createElement('button');
+  allBtn.className = 'chip active';
+  allBtn.textContent = 'Todos';
+  allBtn.onclick = () => setCategory('Todos');
+  filtersEl.appendChild(allBtn);
+
+  categories.forEach(cat => {
+    const btn = document.createElement('button');
+    btn.className = 'chip';
+    btn.textContent = cat;
+    btn.onclick = () => setCategory(cat);
+    filtersEl.appendChild(btn);
+  });
+}
+
+function setCategory(cat) {
+  activeCategory = cat;
+  document.querySelectorAll('.chip').forEach(b =>
+    b.classList.toggle('active', b.textContent === cat)
+  );
+  renderCards();
+}
+
+function renderCards() {
   const frag = document.createDocumentFragment();
-  items.forEach(({download_url, name}) => {
+  cardsEl.innerHTML = '';
+
+  const filtered = activeCategory === 'Todos'
+    ? allImages
+    : allImages.filter(img => img.category === activeCategory);
+
+  filtered.forEach(({download_url, name}) => {
     const art = document.createElement('article');
     art.className = 'card';
-
     const img = document.createElement('img');
     img.loading = 'lazy';
     img.decoding = 'async';
     img.src = download_url + `?cb=${encodeURIComponent(GH_BRANCH)}`;
     img.alt = name.replaceAll('_',' ').replaceAll('-',' ');
-
-    // Abre imagem em novo separador ao clicar
-    art.addEventListener('click', () => window.open(download_url, '_blank', 'noopener'));
-
     art.appendChild(img);
+    art.addEventListener('click', () => window.open(download_url, '_blank'));
     frag.appendChild(art);
   });
-  cardsEl.innerHTML = '';
+
   cardsEl.appendChild(frag);
 }
 
-async function loadGallery(){
-  try{
+async function loadGallery() {
+  try {
     const res = await fetch(API_URL, { cache: 'no-store' });
-    if(!res.ok) throw new Error('HTTP '+res.status);
+    if (!res.ok) throw new Error('HTTP ' + res.status);
     const data = await res.json();
 
     const files = (data || [])
       .filter(x => x.type === 'file' && x.download_url && isImage(x.name))
-      // ordena por nome desc (se nomeares 2025-11-06_foto.jpg fica “mais recente primeiro”)
-      .sort((a,b) => a.name < b.name ? 1 : -1);
+      .sort((a,b) => a.name.localeCompare(b.name));
 
-    render(files);
+    allImages = files.map(f => ({
+      ...f,
+      category: getCategory(f.name)
+    }));
+
+    // cria lista de categorias únicas
+    const cats = [...new Set(allImages.map(i => i.category))].sort();
+
+    renderFilters(cats);
+    renderCards();
     loadEl.remove();
-  }catch(e){
+  } catch (e) {
     console.error(e);
-    if(loadEl) loadEl.remove();
+    loadEl.remove();
     errEl.hidden = false;
   }
 }
@@ -167,4 +211,5 @@ loadGallery();
 </body>
 
 </html>
+
 
