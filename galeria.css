@@ -84,4 +84,25 @@ a{text-decoration:none;color:inherit}
   .cards{grid-template-columns:1fr}
   .card img{height:420px}
   .page-title h1{font-size:40px}
+
 }
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 24px;
+}
+
+.chip {
+  background: #222;
+  color: #fff;
+  border: none;
+  border-radius: 20px;
+  padding: 8px 14px;
+  cursor: pointer;
+  transition: 0.2s;
+}
+
+.chip:hover { background: #444; }
+.chip.active { background: #fff; color: #000; font-weight: 600; }
